@@ -7,11 +7,14 @@ export class ESPModule extends BaseModule {
     public readonly name = "ESP";
 
     // Classes
+    private Camera!: Il2Cpp.Class;
     private Color!: Il2Cpp.Class;
     private PlayerControl!: Il2Cpp.Class;
 
     // Methods
     private PlayerControl_FixedUpdate!: Il2Cpp.Method;
+
+    private zoomWasOn = false;
 
     // Colors (UnityEngine.Color structs)
     private impostorColor!: Il2Cpp.ValueType;
@@ -19,6 +22,7 @@ export class ESPModule extends BaseModule {
     private whiteColor!: Il2Cpp.ValueType;
 
     public init(): void {
+        this.Camera = AssemblyHelper.CoreModule.class("UnityEngine.Camera");
         this.Color = AssemblyHelper.CoreModule.class("UnityEngine.Color");
         this.PlayerControl = AssemblyHelper.AssemblyCSharp.class("PlayerControl");
 
@@ -36,14 +40,41 @@ export class ESPModule extends BaseModule {
             // Let the game do its thing first, then paint over the name color
             this.method<void>("FixedUpdate").invoke();
 
+            module.applyZoom();
+
             if (!State.roleEsp) return;
 
             try {
-                module.colorPlayer(this as unknown as Il2Cpp.Object);
+                module.colorPlayer(this as Il2Cpp.Object);
             } catch (e) {
                 Logger.debug(`[${module.name}::FixedUpdate] ${e} (expected while the player is still loading)`);
             }
         };
+    }
+
+    /** Zoom out by raising the camera's orthographic size (vanilla is 3) */
+    private applyZoom(): void {
+        try {
+            if (!State.zoom) {
+                if (this.zoomWasOn) {
+                    this.setCameraSize(3);
+                    this.zoomWasOn = false;
+                }
+                return;
+            }
+
+            this.setCameraSize(Math.max(3, State.zoomValue));
+            this.zoomWasOn = true;
+        } catch (e) {
+            Logger.debug(`[${this.name}::applyZoom] ${e}`);
+        }
+    }
+
+    private setCameraSize(size: number): void {
+        const camera = this.Camera.method<Il2Cpp.Object>("get_main").invoke();
+        if (camera.isNull()) return;
+
+        camera.method("set_orthographicSize").invoke(size);
     }
 
     /** Colors one player's name based on their role: red = impostor, cyan = crew */
