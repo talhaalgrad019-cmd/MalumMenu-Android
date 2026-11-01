@@ -4,6 +4,7 @@ export const State = {
     customSpeed: false,
     speed: 5,
     noShadows: false,
+    roleEsp: false,
     unlockVents: false,
     walkInVents: false,
 
