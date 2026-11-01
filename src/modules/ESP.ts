@@ -39,7 +39,7 @@ export class ESPModule extends BaseModule {
             if (!State.roleEsp) return;
 
             try {
-                module.colorPlayer(this as Il2Cpp.Object);
+                module.colorPlayer(this as unknown as Il2Cpp.Object);
             } catch (e) {
                 Logger.debug(`[${module.name}::FixedUpdate] ${e} (expected while the player is still loading)`);
             }
