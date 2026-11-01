@@ -26,5 +26,17 @@ export class ESPTab {
                 })
             )
         );
+
+        add(
+            layout.seekbar("Zoom: {0} / 20", 20, 0, (value: number) => {
+                State.zoomValue = value;
+            })
+        );
+
+        add(
+            layout.toggle("Zoom Out", (state: boolean) => {
+                State.zoom = state;
+            })
+        );
     }
 }
