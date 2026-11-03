@@ -14,8 +14,11 @@ export class ESPModule extends BaseModule {
 
     // Methods
     private PlayerControl_FixedUpdate!: Il2Cpp.Method;
+    private HudManager_get_Instance!: Il2Cpp.Method;
+    private Camera_get_main!: Il2Cpp.Method;
 
     private zoomWasOn = false;
+    private lastSlowTick = 0;
     private loggedCooldowns = new Set<string>();
 
     // Colors (UnityEngine.Color structs)
@@ -30,6 +33,8 @@ export class ESPModule extends BaseModule {
         this.PlayerControl = AssemblyHelper.AssemblyCSharp.class("PlayerControl");
 
         this.PlayerControl_FixedUpdate = this.PlayerControl.method<void>("FixedUpdate");
+        this.HudManager_get_Instance = this.HudManager.method<Il2Cpp.Object>("get_Instance");
+        this.Camera_get_main = this.Camera.method<Il2Cpp.Object>("get_main");
 
         this.impostorColor = this.createColor(1, 0.1, 0.1, 1); // red
         this.crewColor = this.createColor(0.2, 0.9, 1, 1); // cyan
@@ -43,8 +48,13 @@ export class ESPModule extends BaseModule {
             // Let the game do its thing first, then paint over the name color
             this.method<void>("FixedUpdate").invoke();
 
-            module.applyZoom();
-            module.removeCooldowns(this as Il2Cpp.Object);
+            // Zoom and cooldowns run at most ~7 times a second (not every tick for every player)
+            const now = Date.now();
+            if (now - module.lastSlowTick >= 150) {
+                module.lastSlowTick = now;
+                module.applyZoom();
+                module.removeCooldowns();
+            }
 
             if (!State.roleEsp) return;
 
@@ -75,23 +85,23 @@ export class ESPModule extends BaseModule {
     }
 
     /** Remove All Cooldowns: kill timer plus every role/ability/sabotage button (local player only) */
-    private removeCooldowns(player: Il2Cpp.Object): void {
+    private removeCooldowns(): void {
         if (!State.noCooldowns) return;
 
         try {
-            const isLocal = player.tryMethod<boolean>("get_AmOwner");
-            if (!isLocal || !isLocal.invoke()) return;
+            const local = this.PlayerControl.field<Il2Cpp.Object>("LocalPlayer").value;
+            if (local.isNull()) return;
 
             // Impostor kill cooldown
             try {
-                player.field<number>("killTimer").value = 0;
+                local.field<number>("killTimer").value = 0;
                 this.logOnce("killTimer");
             } catch (e) {
                 this.logOnce("killTimer failed: " + e);
             }
 
             // Every role button (kill, ability, sabotage, vent)
-            const hud = this.HudManager.method<Il2Cpp.Object>("get_Instance").invoke();
+            const hud = this.HudManager_get_Instance.invoke();
             if (hud.isNull()) return;
 
             const buttons = ["KillButton", "AbilityButton", "SabotageButton", "ImpostorVentButton"];
@@ -121,7 +131,7 @@ export class ESPModule extends BaseModule {
     }
 
     private setCameraSize(size: number): void {
-        const camera = this.Camera.method<Il2Cpp.Object>("get_main").invoke();
+        const camera = this.Camera_get_main.invoke();
         if (camera.isNull()) return;
 
         camera.method("set_orthographicSize").invoke(size);
@@ -185,4 +195,4 @@ export class ESPModule extends BaseModule {
         instance.method(".ctor", 4).invoke(r, g, b, a);
         return instance.unbox();
     }
-}
+        }
