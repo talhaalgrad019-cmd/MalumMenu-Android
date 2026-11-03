@@ -7,6 +7,7 @@ export const State = {
     roleEsp: false,
     zoom: false,
     zoomValue: 6,
+    noCooldowns: false,
     unlockVents: false,
     walkInVents: false,
 
