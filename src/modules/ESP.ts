@@ -9,12 +9,14 @@ export class ESPModule extends BaseModule {
     // Classes
     private Camera!: Il2Cpp.Class;
     private Color!: Il2Cpp.Class;
+    private HudManager!: Il2Cpp.Class;
     private PlayerControl!: Il2Cpp.Class;
 
     // Methods
     private PlayerControl_FixedUpdate!: Il2Cpp.Method;
 
     private zoomWasOn = false;
+    private loggedCooldowns = new Set<string>();
 
     // Colors (UnityEngine.Color structs)
     private impostorColor!: Il2Cpp.ValueType;
@@ -24,6 +26,7 @@ export class ESPModule extends BaseModule {
     public init(): void {
         this.Camera = AssemblyHelper.CoreModule.class("UnityEngine.Camera");
         this.Color = AssemblyHelper.CoreModule.class("UnityEngine.Color");
+        this.HudManager = AssemblyHelper.AssemblyCSharp.class("HudManager");
         this.PlayerControl = AssemblyHelper.AssemblyCSharp.class("PlayerControl");
 
         this.PlayerControl_FixedUpdate = this.PlayerControl.method<void>("FixedUpdate");
@@ -41,6 +44,7 @@ export class ESPModule extends BaseModule {
             this.method<void>("FixedUpdate").invoke();
 
             module.applyZoom();
+            module.removeCooldowns(this as Il2Cpp.Object);
 
             if (!State.roleEsp) return;
 
@@ -68,6 +72,52 @@ export class ESPModule extends BaseModule {
         } catch (e) {
             Logger.debug(`[${this.name}::applyZoom] ${e}`);
         }
+    }
+
+    /** Remove All Cooldowns: kill timer plus every role/ability/sabotage button (local player only) */
+    private removeCooldowns(player: Il2Cpp.Object): void {
+        if (!State.noCooldowns) return;
+
+        try {
+            const isLocal = player.tryMethod<boolean>("get_AmOwner");
+            if (!isLocal || !isLocal.invoke()) return;
+
+            // Impostor kill cooldown
+            try {
+                player.field<number>("killTimer").value = 0;
+                this.logOnce("killTimer");
+            } catch (e) {
+                this.logOnce("killTimer failed: " + e);
+            }
+
+            // Every role button (kill, ability, sabotage, vent)
+            const hud = this.HudManager.method<Il2Cpp.Object>("get_Instance").invoke();
+            if (hud.isNull()) return;
+
+            const buttons = ["KillButton", "AbilityButton", "SabotageButton", "ImpostorVentButton"];
+            for (const name of buttons) {
+                try {
+                    const button = hud.field<Il2Cpp.Object>(name).value;
+                    if (button.isNull()) continue;
+
+                    const setCoolDown = button.tryMethod("SetCoolDown");
+                    if (!setCoolDown) continue;
+
+                    setCoolDown.invoke(0, 1);
+                    this.logOnce(name);
+                } catch (e) {
+                    this.logOnce(name + " failed: " + e);
+                }
+            }
+        } catch (e) {
+            Logger.debug(`[${this.name}::removeCooldowns] ${e}`);
+        }
+    }
+
+    private logOnce(key: string): void {
+        if (this.loggedCooldowns.has(key)) return;
+        this.loggedCooldowns.add(key);
+        Logger.info(`[${this.name}] No cooldown: ${key}`);
     }
 
     private setCameraSize(size: number): void {
