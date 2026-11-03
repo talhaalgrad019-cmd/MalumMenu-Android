@@ -14,8 +14,8 @@ export class ESPModule extends BaseModule {
 
     // Methods
     private PlayerControl_FixedUpdate!: Il2Cpp.Method;
-    private HudManager_get_Instance!: Il2Cpp.Method;
-    private Camera_get_main!: Il2Cpp.Method;
+    private HudManager_get_Instance!: Il2Cpp.Method<Il2Cpp.Object>;
+    private Camera_get_main!: Il2Cpp.Method<Il2Cpp.Object>;
 
     private zoomWasOn = false;
     private lastSlowTick = 0;
@@ -195,4 +195,4 @@ export class ESPModule extends BaseModule {
         instance.method(".ctor", 4).invoke(r, g, b, a);
         return instance.unbox();
     }
-        }
+            }
